@@ -289,65 +289,59 @@ export default function CreateNewList() {
             label="Tienda"
             hint="Opcional — para registrar precios por supermercado"
           >
-            {storesLoading ? (
+            {storesLoading && (
               <div className="flex items-center gap-2 py-2 text-sm text-gray-400">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 Cargando tiendas…
               </div>
-            ) : (
-              <>
-                {stores.length === 0 && !showNewStore ? (
-                  /* Empty state — nudge user to add first store */
-                  <button
-                    type="button"
-                    onClick={() => setShowNewStore(true)}
-                    className="flex items-center gap-2 text-sm text-primary-500 font-semibold hover:text-primary-600 pt-1"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Agregar tu primer supermercado
-                  </button>
-                ) : (
-                  <div className="space-y-2">
-                    {/* Chips row */}
-                    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1 pt-1 items-center">
-                      {stores.map((store) => (
-                        <StoreChip
-                          key={store.id}
-                          store={store}
-                          selected={selectedStore?.id === store.id}
-                          onToggle={toggleStore}
-                        />
-                      ))}
+            )}
 
-                      {/* Add new store button (inline) */}
-                      {!showNewStore && (
-                        <button
-                          type="button"
-                          onClick={() => setShowNewStore(true)}
-                          className={cn(
-                            'flex items-center gap-1.5 px-3 py-2 rounded-full border-2 border-dashed',
-                            'text-sm font-medium whitespace-nowrap transition-colors',
-                            'border-gray-200 text-gray-400 hover:border-primary-300 hover:text-primary-500'
-                          )}
-                          aria-label="Agregar tienda"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          Nueva
-                        </button>
+            {!storesLoading && stores.length === 0 && !showNewStore && (
+              <button
+                type="button"
+                onClick={() => setShowNewStore(true)}
+                className="flex items-center gap-2 text-sm text-primary-500 font-semibold hover:text-primary-600 pt-1"
+              >
+                <Plus className="w-4 h-4" />
+                Agregar tu primer supermercado
+              </button>
+            )}
+
+            {!storesLoading && (stores.length > 0 || showNewStore) && (
+              <div className="space-y-2">
+                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1 pt-1 items-center">
+                  {stores.map((store) => (
+                    <StoreChip
+                      key={store.id}
+                      store={store}
+                      selected={selectedStore?.id === store.id}
+                      onToggle={toggleStore}
+                    />
+                  ))}
+                  {!showNewStore && (
+                    <button
+                      type="button"
+                      onClick={() => setShowNewStore(true)}
+                      className={cn(
+                        'flex items-center gap-1.5 px-3 py-2 rounded-full border-2 border-dashed',
+                        'text-sm font-medium whitespace-nowrap transition-colors',
+                        'border-gray-200 text-gray-400 hover:border-primary-300 hover:text-primary-500'
                       )}
-                    </div>
-
-                    {/* Inline new-store form */}
-                    {showNewStore && (
-                      <NewStoreInline
-                        onSave={handleNewStore}
-                        onCancel={() => setShowNewStore(false)}
-                        saving={storeSaving}
-                      />
-                    )}
-                  </div>
+                      aria-label="Agregar tienda"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Nueva
+                    </button>
+                  )}
+                </div>
+                {showNewStore && (
+                  <NewStoreInline
+                    onSave={handleNewStore}
+                    onCancel={() => setShowNewStore(false)}
+                    saving={storeSaving}
+                  />
                 )}
-              </>
+              </div>
             )}
           </Field>
 

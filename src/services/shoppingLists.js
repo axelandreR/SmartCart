@@ -6,6 +6,7 @@ export const listsService = {
       .from('shopping_lists')
       .select('*, stores(id, name), shopping_list_items(count)')
       .order('updated_at', { ascending: false })
+      .limit(100)
     if (error) throw error
     return data
   },

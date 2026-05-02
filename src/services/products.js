@@ -80,16 +80,6 @@ export const productsService = {
     return count ?? 0
   },
 
-  /**
-   * Products that have both last_price and prev_price, so we can compute
-   * price variation (increases and decreases) for the analytics view.
-   * @returns {Promise<Array<{ id, name, category, last_price, prev_price }>>}
-   */
-  /**
-   * Update the image_url of a product.
-   * @param {string} id
-   * @param {string} imageUrl
-   */
   async updateImage(id, imageUrl) {
     const { data, error } = await supabase
       .from('products')
