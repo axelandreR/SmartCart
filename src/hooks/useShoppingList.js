@@ -20,7 +20,8 @@ export function useShoppingList(id) {
     try {
       await listItemsService.toggleChecked(itemId, checked)
       await refetch()
-    } catch {
+    } catch (err) {
+      console.error('[useShoppingList] toggleItem:', err)
       toast.error('No se pudo actualizar el ítem')
     } finally {
       setSaving(false)
@@ -33,7 +34,8 @@ export function useShoppingList(id) {
       await listItemsService.addItem(id, item)
       await refetch()
       toast.success('Ítem agregado')
-    } catch {
+    } catch (err) {
+      console.error('[useShoppingList] addItem:', err)
       toast.error('No se pudo agregar el ítem')
     } finally {
       setSaving(false)
@@ -45,7 +47,8 @@ export function useShoppingList(id) {
     try {
       await listItemsService.removeItem(itemId)
       await refetch()
-    } catch {
+    } catch (err) {
+      console.error('[useShoppingList] removeItem:', err)
       toast.error('No se pudo eliminar el ítem')
     } finally {
       setSaving(false)
@@ -56,29 +59,27 @@ export function useShoppingList(id) {
     try {
       await listItemsService.updateItem(itemId, { price: price ?? null })
       await refetch()
-    } catch {
+    } catch (err) {
+      console.error('[useShoppingList] updateItemPrice:', err)
       toast.error('No se pudo guardar el precio')
     }
   }, [refetch])
 
   const completeList = useCallback(async () => {
     try {
-      // 1. Record all priced items into products + price_history
       const items = list?.shopping_list_items ?? []
       const { recorded } = await priceMemoryService.commitPriceMemory(
         { id, store_id: list?.store_id ?? null },
         items,
       )
-
-      // 2. Mark the list as completed
       await listsService.markCompleted(id)
-
       const msg = recorded > 0
         ? `Lista completada · ${recorded} precio${recorded !== 1 ? 's' : ''} registrado${recorded !== 1 ? 's' : ''}`
         : 'Lista completada'
       toast.success(msg)
       await refetch()
-    } catch {
+    } catch (err) {
+      console.error('[useShoppingList] completeList:', err)
       toast.error('Error al completar la lista')
     }
   }, [id, list, refetch])

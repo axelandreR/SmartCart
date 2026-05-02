@@ -31,9 +31,10 @@ export const productsService = {
   },
 
   async create(product) {
+    const { data: { user } } = await supabase.auth.getUser()
     const { data, error } = await supabase
       .from('products')
-      .insert(product)
+      .insert({ ...product, user_id: user.id })
       .select()
       .single()
     if (error) throw error
