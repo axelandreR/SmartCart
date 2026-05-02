@@ -10,6 +10,7 @@ import Modal          from '@/components/ui/Modal'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { useShoppingList } from '@/hooks/useShoppingList'
 import { useProductLookup } from '@/hooks/useProductLookup'
+import { useProductAutocomplete } from '@/hooks/useProductAutocomplete'
 import { SCANNER_DISABLED } from '@/utils/constants'
 import { formatPrice, formatPercent, priceVariance } from '@/utils/formatters'
 import { cn } from '@/utils/cn'
@@ -279,6 +280,9 @@ function AddItemModal({ open, onClose, onAdd, saving, listId }) {
   const navigate = useNavigate()
   const { loading: lookupLoading, result, error: lookupError, lookup, clear } = useProductLookup()
   const [form, setForm] = useState(EMPTY_FORM)
+  const [showSuggestions, setShowSuggestions] = useState(false)
+
+  const { suggestions } = useProductAutocomplete(showSuggestions ? form.name : '')
 
   const set = useCallback((key, val) => setForm((p) => ({ ...p, [key]: val })), [])
 
@@ -309,12 +313,23 @@ function AddItemModal({ open, onClose, onAdd, saving, listId }) {
       note:     form.note.trim() || null,
     })
     setForm(EMPTY_FORM)
+    setShowSuggestions(false)
     clear()
     onClose()
   }, [form, onAdd, clear, onClose])
 
+  const handleSelectSuggestion = useCallback((product) => {
+    setForm((prev) => ({
+      ...prev,
+      name:  product.name,
+      price: product.last_price != null ? String(product.last_price) : prev.price,
+    }))
+    setShowSuggestions(false)
+  }, [])
+
   const handleClose = useCallback(() => {
     setForm(EMPTY_FORM)
+    setShowSuggestions(false)
     clear()
     onClose()
   }, [clear, onClose])
@@ -391,16 +406,42 @@ function AddItemModal({ open, onClose, onAdd, saving, listId }) {
           <label htmlFor="item-name" className="text-sm font-medium text-gray-700">
             Nombre <span className="text-red-500">*</span>
           </label>
-          <input
-            id="item-name"
-            type="text"
-            placeholder="Ej: Leche entera 1L"
-            value={form.name}
-            onChange={(e) => set('name', e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-            autoFocus={!form.barcode}
-            className="input-field"
-          />
+          <div className="relative">
+            <input
+              id="item-name"
+              type="text"
+              placeholder="Ej: Leche entera 1L"
+              value={form.name}
+              onChange={(e) => set('name', e.target.value)}
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+              autoFocus={!form.barcode}
+              autoComplete="off"
+              className="input-field"
+            />
+            {showSuggestions && suggestions.length > 0 && (
+              <ul className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                {suggestions.map((product) => (
+                  <li key={product.id}>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => handleSelectSuggestion(product)}
+                      className="w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-primary-50 transition-colors text-left"
+                    >
+                      <span className="font-medium text-gray-800 truncate">{product.name}</span>
+                      {product.last_price != null && (
+                        <span className="text-primary-500 font-semibold text-xs ml-2 shrink-0">
+                          {formatPrice(product.last_price)}
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
 
         {/* ── Qty + Unit + Price ──────────────────────────────────────────── */}
