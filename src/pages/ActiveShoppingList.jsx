@@ -11,7 +11,7 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { useShoppingList } from '@/hooks/useShoppingList'
 import { useProductLookup } from '@/hooks/useProductLookup'
 import { useProductAutocomplete } from '@/hooks/useProductAutocomplete'
-import { uploadItemPhoto } from '@/services/storage'
+import { uploadItemPhoto, deleteItemPhoto } from '@/services/storage'
 import { SCANNER_DISABLED } from '@/utils/constants'
 import { formatPrice, formatPercent, priceVariance } from '@/utils/formatters'
 import { cn } from '@/utils/cn'
@@ -213,6 +213,10 @@ const ItemRow = memo(function ItemRow({ item, onToggle, onRemove, onUpdatePrice,
     e.target.value = ''
     setUploading(true)
     try {
+      // Delete previous photo from storage before uploading the new one
+      if (item.image_url) deleteItemPhoto(item.image_url).catch((err) =>
+        console.error('[ItemRow] delete old photo:', err)
+      )
       const url = await uploadItemPhoto(file)
       await onUpdateImage(item.id, url)
     } catch (err) {
@@ -220,11 +224,15 @@ const ItemRow = memo(function ItemRow({ item, onToggle, onRemove, onUpdatePrice,
     } finally {
       setUploading(false)
     }
-  }, [item.id, onUpdateImage])
+  }, [item.id, item.image_url, onUpdateImage])
 
   const handleRemovePhoto = useCallback(() => {
+    // Delete from storage as fire-and-forget, then clear the DB reference
+    if (item.image_url) deleteItemPhoto(item.image_url).catch((err) =>
+      console.error('[ItemRow] remove photo storage:', err)
+    )
     onUpdateImage(item.id, null)
-  }, [item.id, onUpdateImage])
+  }, [item.id, item.image_url, onUpdateImage])
 
   return (
     <div className={cn(
@@ -336,7 +344,7 @@ const ItemRow = memo(function ItemRow({ item, onToggle, onRemove, onUpdatePrice,
       {/* Delete */}
       <button
         type="button"
-        onClick={() => onRemove(item.id)}
+        onClick={() => onRemove(item.id, item.image_url)}
         disabled={disabled}
         className="p-1.5 rounded-xl hover:bg-red-50 text-gray-200 hover:text-red-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
         aria-label={`Eliminar ${displayName}`}

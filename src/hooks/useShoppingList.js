@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import { listsService, listItemsService } from '@/services/shoppingLists'
 import { priceMemoryService } from '@/services/products'
+import { deleteItemPhoto } from '@/services/storage'
 import { useQuery } from './useSupabase'
 import toast from 'react-hot-toast'
 
@@ -42,10 +43,14 @@ export function useShoppingList(id) {
     }
   }, [id, refetch])
 
-  const removeItem = useCallback(async (itemId) => {
+  const removeItem = useCallback(async (itemId, imageUrl) => {
     setSaving(true)
     try {
       await listItemsService.removeItem(itemId)
+      // Fire-and-forget: storage cleanup never blocks item deletion
+      if (imageUrl) deleteItemPhoto(imageUrl).catch((err) =>
+        console.error('[useShoppingList] removeItem storage cleanup:', err)
+      )
       await refetch()
     } catch (err) {
       console.error('[useShoppingList] removeItem:', err)
