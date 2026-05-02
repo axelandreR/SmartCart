@@ -186,6 +186,16 @@ export const priceMemoryService = {
       try {
         const productId = await this.upsertProduct(item)
 
+        // Propagate item photo to product catalog if product has none yet
+        if (item.image_url) {
+          const { data: prod } = await supabase
+            .from('products').select('image_url').eq('id', productId).single()
+          if (!prod?.image_url) {
+            await supabase.from('products')
+              .update({ image_url: item.image_url }).eq('id', productId)
+          }
+        }
+
         // Insert price history — DB trigger keeps last_price / prev_price in sync
         const { error: phErr } = await supabase
           .from('price_history')

@@ -107,6 +107,17 @@ export const listItemsService = {
     if (error) throw error
   },
 
+  async updateItemImage(itemId, imageUrl) {
+    const { data, error } = await supabase
+      .from('shopping_list_items')
+      .update({ image_url: imageUrl })
+      .eq('id', itemId)
+      .select('*, products(*)')
+      .single()
+    if (error) throw error
+    return data
+  },
+
   async reorderItems(items) {
     const updates = items.map((item, index) => ({ id: item.id, sort_order: index }))
     const { error } = await supabase.from('shopping_list_items').upsert(updates)

@@ -1,9 +1,9 @@
-import { useState, useMemo, useCallback, memo } from 'react'
+import { useState, useMemo, useCallback, memo, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   Plus, ScanLine, CameraOff, Trash2, CheckCircle2, Circle,
   TrendingUp, TrendingDown, Search, Loader2,
-  ShoppingBag, Store, AlertTriangle, X, Pencil,
+  ShoppingBag, Store, AlertTriangle, X, Pencil, Camera,
 } from 'lucide-react'
 import PageHeader     from '@/components/layout/PageHeader'
 import Modal          from '@/components/ui/Modal'
@@ -11,6 +11,7 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { useShoppingList } from '@/hooks/useShoppingList'
 import { useProductLookup } from '@/hooks/useProductLookup'
 import { useProductAutocomplete } from '@/hooks/useProductAutocomplete'
+import { uploadItemPhoto } from '@/services/storage'
 import { SCANNER_DISABLED } from '@/utils/constants'
 import { formatPrice, formatPercent, priceVariance } from '@/utils/formatters'
 import { cn } from '@/utils/cn'
@@ -200,9 +201,30 @@ function PriceEditor({ item, onUpdatePrice, disabled }) {
 }
 
 // ─── Item row ─────────────────────────────────────────────────────────────────
-const ItemRow = memo(function ItemRow({ item, onToggle, onRemove, onUpdatePrice, disabled }) {
-  const displayName = item.name ?? item.products?.name ?? '—'
-  const unitLabel   = item.unit && item.unit !== 'unid' ? ` ${item.unit}` : ''
+const ItemRow = memo(function ItemRow({ item, onToggle, onRemove, onUpdatePrice, onUpdateImage, disabled }) {
+  const displayName    = item.name ?? item.products?.name ?? '—'
+  const unitLabel      = item.unit && item.unit !== 'unid' ? ` ${item.unit}` : ''
+  const photoInputRef  = useRef(null)
+  const [uploading, setUploading] = useState(false)
+
+  const handlePhotoSelect = useCallback(async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    setUploading(true)
+    try {
+      const url = await uploadItemPhoto(file)
+      await onUpdateImage(item.id, url)
+    } catch (err) {
+      console.error('[ItemRow] photo upload:', err)
+    } finally {
+      setUploading(false)
+    }
+  }, [item.id, onUpdateImage])
+
+  const handleRemovePhoto = useCallback(() => {
+    onUpdateImage(item.id, null)
+  }, [item.id, onUpdateImage])
 
   return (
     <div className={cn(
@@ -237,22 +259,18 @@ const ItemRow = memo(function ItemRow({ item, onToggle, onRemove, onUpdatePrice,
         </p>
 
         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-          {/* Qty + unit */}
           <span className="text-xs text-gray-400">
             ×{item.quantity ?? 1}{unitLabel}
           </span>
 
-          {/* Inline price editor */}
           <PriceEditor
             item={item}
             onUpdatePrice={onUpdatePrice}
             disabled={disabled}
           />
 
-          {/* Price trend */}
           <PriceIndicator product={item.products} />
 
-          {/* Note */}
           {item.note && (
             <span className="text-[10px] italic text-gray-400 truncate max-w-[120px]">
               {item.note}
@@ -260,6 +278,60 @@ const ItemRow = memo(function ItemRow({ item, onToggle, onRemove, onUpdatePrice,
           )}
         </div>
       </div>
+
+      {/* Photo (unchecked items only) */}
+      {!item.checked && (
+        <>
+          {item.image_url ? (
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => photoInputRef.current?.click()}
+                disabled={disabled || uploading}
+                className="w-9 h-9 rounded-xl overflow-hidden border border-gray-200 block"
+                aria-label="Cambiar foto"
+              >
+                {uploading
+                  ? <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-400" />
+                    </div>
+                  : <img src={item.image_url} alt="" className="w-full h-full object-cover" />
+                }
+              </button>
+              <button
+                type="button"
+                onClick={handleRemovePhoto}
+                disabled={disabled}
+                className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-white hover:bg-red-600"
+                aria-label="Eliminar foto"
+              >
+                <X className="w-2.5 h-2.5" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => photoInputRef.current?.click()}
+              disabled={disabled || uploading}
+              className="p-1.5 rounded-xl hover:bg-primary-50 text-gray-200 hover:text-primary-400 transition-colors focus-visible:outline-none"
+              aria-label="Agregar foto"
+            >
+              {uploading
+                ? <Loader2 className="w-4 h-4 animate-spin text-primary-400" />
+                : <Camera  className="w-4 h-4" />
+              }
+            </button>
+          )}
+          <input
+            ref={photoInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={handlePhotoSelect}
+          />
+        </>
+      )}
 
       {/* Delete */}
       <button
@@ -277,14 +349,33 @@ const ItemRow = memo(function ItemRow({ item, onToggle, onRemove, onUpdatePrice,
 
 // ─── Add item modal ───────────────────────────────────────────────────────────
 function AddItemModal({ open, onClose, onAdd, saving, listId }) {
-  const navigate = useNavigate()
+  const navigate      = useNavigate()
+  const photoInputRef = useRef(null)
   const { loading: lookupLoading, result, error: lookupError, lookup, clear } = useProductLookup()
-  const [form, setForm] = useState(EMPTY_FORM)
+  const [form, setForm]               = useState(EMPTY_FORM)
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [photoFile,    setPhotoFile]   = useState(null)
+  const [photoPreview, setPhotoPreview] = useState(null)
+  const [uploading,    setUploading]   = useState(false)
 
   const { suggestions } = useProductAutocomplete(showSuggestions ? form.name : '')
 
   const set = useCallback((key, val) => setForm((p) => ({ ...p, [key]: val })), [])
+
+  const handlePhotoSelect = useCallback((e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (photoPreview) URL.revokeObjectURL(photoPreview)
+    setPhotoFile(file)
+    setPhotoPreview(URL.createObjectURL(file))
+    e.target.value = ''
+  }, [photoPreview])
+
+  const clearPhoto = useCallback(() => {
+    if (photoPreview) URL.revokeObjectURL(photoPreview)
+    setPhotoFile(null)
+    setPhotoPreview(null)
+  }, [photoPreview])
 
   // Auto-apply lookup result to form fields
   const handleLookupResult = useCallback((res) => {
@@ -304,19 +395,33 @@ function AddItemModal({ open, onClose, onAdd, saving, listId }) {
 
   const handleSubmit = useCallback(async () => {
     if (!form.name.trim()) return
+    setUploading(true)
+    let imageUrl = null
+    if (photoFile) {
+      try {
+        imageUrl = await uploadItemPhoto(photoFile)
+      } catch (err) {
+        console.error('[AddItemModal] photo upload:', err)
+      }
+    }
+    setUploading(false)
     await onAdd({
-      name:     form.name.trim(),
-      barcode:  form.barcode.trim() || null,
-      quantity: Math.max(1, Number(form.quantity) || 1),
-      unit:     form.unit,
-      price:    form.price !== '' ? Number(form.price) : null,
-      note:     form.note.trim() || null,
+      name:      form.name.trim(),
+      barcode:   form.barcode.trim() || null,
+      quantity:  Math.max(1, Number(form.quantity) || 1),
+      unit:      form.unit,
+      price:     form.price !== '' ? Number(form.price) : null,
+      note:      form.note.trim() || null,
+      image_url: imageUrl,
     })
+    if (photoPreview) URL.revokeObjectURL(photoPreview)
+    setPhotoFile(null)
+    setPhotoPreview(null)
     setForm(EMPTY_FORM)
     setShowSuggestions(false)
     clear()
     onClose()
-  }, [form, onAdd, clear, onClose])
+  }, [form, photoFile, photoPreview, onAdd, clear, onClose])
 
   const handleSelectSuggestion = useCallback((product) => {
     setForm((prev) => ({
@@ -328,11 +433,14 @@ function AddItemModal({ open, onClose, onAdd, saving, listId }) {
   }, [])
 
   const handleClose = useCallback(() => {
+    if (photoPreview) URL.revokeObjectURL(photoPreview)
+    setPhotoFile(null)
+    setPhotoPreview(null)
     setForm(EMPTY_FORM)
     setShowSuggestions(false)
     clear()
     onClose()
-  }, [clear, onClose])
+  }, [photoPreview, clear, onClose])
 
   return (
     <Modal open={open} onClose={handleClose} title="Agregar producto">
@@ -508,6 +616,44 @@ function AddItemModal({ open, onClose, onAdd, saving, listId }) {
           />
         </div>
 
+        {/* ── Photo ───────────────────────────────────────────────────────── */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-gray-700">
+            Foto del producto
+            <span className="text-gray-400 font-normal text-[11px] ml-1">(opcional)</span>
+          </label>
+          {photoPreview ? (
+            <div className="relative w-20 h-20 rounded-xl overflow-hidden border border-gray-200 shrink-0">
+              <img src={photoPreview} alt="Foto del producto" className="w-full h-full object-cover" />
+              <button
+                type="button"
+                onClick={clearPhoto}
+                className="absolute top-1 right-1 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center text-white hover:bg-black/80"
+                aria-label="Eliminar foto"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => photoInputRef.current?.click()}
+              className="flex items-center gap-2 text-sm text-primary-500 font-medium hover:text-primary-600 py-1 w-fit"
+            >
+              <Camera className="w-4 h-4" />
+              Tomar foto
+            </button>
+          )}
+          <input
+            ref={photoInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={handlePhotoSelect}
+          />
+        </div>
+
         {/* ── Actions ─────────────────────────────────────────────────────── */}
         <div className="flex gap-2 pt-1">
           <button type="button" onClick={handleClose} className="btn-ghost flex-1">
@@ -516,10 +662,10 @@ function AddItemModal({ open, onClose, onAdd, saving, listId }) {
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={saving || !form.name.trim()}
+            disabled={saving || uploading || !form.name.trim()}
             className="btn-primary flex-1 flex items-center justify-center gap-2"
           >
-            {saving
+            {saving || uploading
               ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               : 'Agregar'
             }
@@ -596,7 +742,7 @@ export default function ActiveShoppingList() {
   const { listId } = useParams()
   const navigate   = useNavigate()
 
-  const { list, loading, saving, toggleItem, addItem, removeItem, updateItemPrice, completeList } =
+  const { list, loading, saving, toggleItem, addItem, removeItem, updateItemPrice, updateItemImage, completeList } =
     useShoppingList(listId)
 
   const [showAdd,      setShowAdd]      = useState(false)
@@ -724,6 +870,7 @@ export default function ActiveShoppingList() {
                 onToggle={toggleItem}
                 onRemove={removeItem}
                 onUpdatePrice={updateItemPrice}
+                onUpdateImage={updateItemImage}
                 disabled={saving}
               />
             ))}
@@ -741,6 +888,7 @@ export default function ActiveShoppingList() {
                       onToggle={toggleItem}
                       onRemove={removeItem}
                       onUpdatePrice={updateItemPrice}
+                      onUpdateImage={updateItemImage}
                       disabled={saving}
                     />
                   ))}

@@ -65,6 +65,16 @@ export function useShoppingList(id) {
     }
   }, [refetch])
 
+  const updateItemImage = useCallback(async (itemId, imageUrl) => {
+    try {
+      await listItemsService.updateItemImage(itemId, imageUrl)
+      await refetch()
+    } catch (err) {
+      console.error('[useShoppingList] updateItemImage:', err)
+      toast.error('No se pudo guardar la foto')
+    }
+  }, [refetch])
+
   const completeList = useCallback(async () => {
     try {
       const items = list?.shopping_list_items ?? []
@@ -84,5 +94,5 @@ export function useShoppingList(id) {
     }
   }, [id, list, refetch])
 
-  return { list, loading, error, saving, toggleItem, addItem, removeItem, updateItemPrice, completeList }
+  return { list, loading, error, saving, toggleItem, addItem, removeItem, updateItemPrice, updateItemImage, completeList }
 }
