@@ -1,0 +1,98 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-primary: 83 74 183;
+    --color-secondary: 15 110 86;
+    --color-accent: 133 79 11;
+  }
+
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply font-sans bg-gray-50 text-gray-900 antialiased;
+    /* Safe area insets for PWA on iOS */
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  input, textarea, select {
+    @apply text-base; /* Prevents iOS zoom on focus */
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary-500 hover:bg-primary-600 active:bg-primary-700
+           text-white font-semibold px-4 py-2.5 rounded-xl
+           transition-colors duration-150 disabled:opacity-50
+           disabled:cursor-not-allowed select-none;
+  }
+
+  .btn-secondary {
+    @apply bg-secondary-500 hover:bg-secondary-600 active:bg-secondary-700
+           text-white font-semibold px-4 py-2.5 rounded-xl
+           transition-colors duration-150 disabled:opacity-50
+           disabled:cursor-not-allowed select-none;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent hover:bg-gray-100 active:bg-gray-200
+           text-gray-700 font-medium px-4 py-2.5 rounded-xl
+           transition-colors duration-150 select-none;
+  }
+
+  .btn-accent {
+    @apply bg-accent-500 hover:bg-accent-600 active:bg-accent-700
+           text-white font-semibold px-4 py-2.5 rounded-xl
+           transition-colors duration-150 disabled:opacity-50
+           disabled:cursor-not-allowed select-none;
+  }
+
+  .card {
+    @apply bg-white rounded-2xl shadow-card p-4;
+  }
+
+  .input-field {
+    @apply w-full border border-gray-200 rounded-xl px-3.5 py-2.5
+           text-gray-900 placeholder-gray-400
+           focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400
+           transition-colors duration-150 bg-white;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .bottom-nav {
+    @apply fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100
+           flex items-center justify-around z-50;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .page-header {
+    @apply sticky top-0 z-40 bg-white border-b border-gray-100 px-4 py-3;
+  }
+}
+
+@layer utilities {
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
