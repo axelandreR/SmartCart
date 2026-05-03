@@ -34,8 +34,11 @@ import Profile       from '@/pages/Profile'
 import Notifications from '@/pages/Notifications'
 import ExportData    from '@/pages/ExportData'
 
+// ── Public shared list (no auth required) ─────────────────────────────────────
+import SharedList from '@/pages/SharedList'
+
 // ─── Routes that hide the bottom nav (full-screen experience) ─────────────────
-const FULLSCREEN_PATHS = ['/scanner', '/barcode-scanner', '/login', '/register', '/create-list', '/lists/new']
+const FULLSCREEN_PATHS = ['/scanner', '/barcode-scanner', '/login', '/register', '/create-list', '/lists/new', '/shared']
 
 // ─── AppLayout ────────────────────────────────────────────────────────────────
 // Layout route component: renders <Outlet /> + conditionally shows BottomNav.
@@ -88,8 +91,9 @@ export default function App() {
         <Route path="/" element={<RootRedirect />} />
 
         {/* ── Public routes (no auth required) ───────────────────────────────── */}
-        <Route path="/login"    element={<LoginScreen />} />
-        <Route path="/register" element={<RegisterScreen />} />
+        <Route path="/login"           element={<LoginScreen />} />
+        <Route path="/register"        element={<RegisterScreen />} />
+        <Route path="/shared/:token"   element={<SharedList />} />
 
         {/* ── Standard protected routes ───────────────────────────────────────── */}
         {/* Auth check → AppLayout (BottomNav) → page */}

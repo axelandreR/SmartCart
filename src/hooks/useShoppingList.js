@@ -1,8 +1,9 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { listsService, listItemsService } from '@/services/shoppingLists'
 import { priceMemoryService } from '@/services/products'
 import { deleteItemPhoto } from '@/services/storage'
 import { useQuery } from './useSupabase'
+import supabase from '@/services/supabase'
 import toast from 'react-hot-toast'
 
 export function useShoppingLists() {
@@ -15,6 +16,23 @@ export function useShoppingList(id) {
     () => listsService.getById(id),
     [id]
   )
+
+  // ── Realtime: re-fetch when any item in this list changes ───────────────────
+  // Lets the owner see shopper notes the moment they are written.
+  useEffect(() => {
+    if (!id) return
+
+    const channel = supabase
+      .channel(`list-items:${id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'shopping_list_items', filter: `list_id=eq.${id}` },
+        () => { refetch() },
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [id, refetch])
 
   const toggleItem = useCallback(async (itemId, checked) => {
     setSaving(true)
@@ -80,6 +98,19 @@ export function useShoppingList(id) {
     }
   }, [refetch])
 
+  /**
+   * Owner clears a shopper note from an item after reviewing it.
+   */
+  const clearShopperNote = useCallback(async (itemId) => {
+    try {
+      await listItemsService.updateItem(itemId, { shopper_note: null, shopper_note_at: null })
+      await refetch()
+    } catch (err) {
+      console.error('[useShoppingList] clearShopperNote:', err)
+      toast.error('No se pudo borrar la nota')
+    }
+  }, [refetch])
+
   const completeList = useCallback(async () => {
     try {
       const items = list?.shopping_list_items ?? []
@@ -99,5 +130,5 @@ export function useShoppingList(id) {
     }
   }, [id, list, refetch])
 
-  return { list, loading, error, saving, toggleItem, addItem, removeItem, updateItemPrice, updateItemImage, completeList }
+  return { list, loading, error, saving, toggleItem, addItem, removeItem, updateItemPrice, updateItemImage, clearShopperNote, completeList }
 }

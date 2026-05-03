@@ -4,11 +4,14 @@ import {
   Plus, ScanLine, CameraOff, Trash2, CheckCircle2, Circle,
   TrendingUp, TrendingDown, Search, Loader2,
   ShoppingBag, Store, AlertTriangle, X, Pencil, Camera,
+  Share2, Copy, Check, Trash, Lock, MessageSquare,
 } from 'lucide-react'
 import PageHeader     from '@/components/layout/PageHeader'
 import Modal          from '@/components/ui/Modal'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { useShoppingList } from '@/hooks/useShoppingList'
+import { useListShares } from '@/hooks/useListShares'
+import { useAuth } from '@/hooks/useSupabase'
 import { useProductLookup } from '@/hooks/useProductLookup'
 import { useProductAutocomplete } from '@/hooks/useProductAutocomplete'
 import { uploadItemPhoto, deleteItemPhoto } from '@/services/storage'
@@ -201,7 +204,7 @@ function PriceEditor({ item, onUpdatePrice, disabled }) {
 }
 
 // ─── Item row ─────────────────────────────────────────────────────────────────
-const ItemRow = memo(function ItemRow({ item, onToggle, onRemove, onUpdatePrice, onUpdateImage, disabled }) {
+const ItemRow = memo(function ItemRow({ item, onToggle, onRemove, onUpdatePrice, onUpdateImage, onClearNote, disabled }) {
   const displayName    = item.name ?? item.products?.name ?? '—'
   const unitLabel      = item.unit && item.unit !== 'unid' ? ` ${item.unit}` : ''
   const photoInputRef  = useRef(null)
@@ -285,6 +288,25 @@ const ItemRow = memo(function ItemRow({ item, onToggle, onRemove, onUpdatePrice,
             </span>
           )}
         </div>
+
+        {/* Shopper note badge — shown below the detail row, clears on tap */}
+        {item.shopper_note && (
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 max-w-[200px] truncate">
+              <MessageSquare className="w-2.5 h-2.5 shrink-0" />
+              {item.shopper_note}
+            </span>
+            <button
+              type="button"
+              onClick={() => onClearNote?.(item.id)}
+              disabled={disabled}
+              className="w-4 h-4 rounded-full bg-amber-100 hover:bg-amber-200 flex items-center justify-center text-amber-600 shrink-0"
+              aria-label="Borrar nota del comprador"
+            >
+              <X className="w-2.5 h-2.5" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Photo (unchecked items only) */}
@@ -354,6 +376,122 @@ const ItemRow = memo(function ItemRow({ item, onToggle, onRemove, onUpdatePrice,
     </div>
   )
 })
+
+// ─── Share modal ─────────────────────────────────────────────────────────────
+function ShareModal({ open, onClose, listId, plan }) {
+  const { shares, loading, creating, createShare, revokeShare } = useListShares(
+    open ? listId : null,
+  )
+  const [copiedId, setCopiedId] = useState(null)
+
+  const FREE_LIMIT = 1
+  const atFreeLimit = plan === 'free' && shares.length >= FREE_LIMIT
+
+  const shareUrl = (token) =>
+    `${window.location.origin}/shared/${token}`
+
+  const copyLink = useCallback((share) => {
+    navigator.clipboard.writeText(shareUrl(share.token)).then(() => {
+      setCopiedId(share.id)
+      setTimeout(() => setCopiedId(null), 2000)
+    })
+  }, [])
+
+  const handleCreate = useCallback(async () => {
+    const share = await createShare({ permission: 'shopper' })
+    if (share) copyLink(share)
+  }, [createShare, copyLink])
+
+  return (
+    <Modal open={open} onClose={onClose} title="Compartir lista">
+      <div className="space-y-4">
+
+        {/* Existing links */}
+        {loading ? (
+          <div className="flex justify-center py-4">
+            <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+          </div>
+        ) : shares.length === 0 ? (
+          <div className="text-center py-6 text-sm text-gray-400">
+            <Share2 className="w-8 h-8 mx-auto mb-2 text-gray-200" />
+            No hay links activos.<br />Creá uno para compartir.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {shares.map((share) => (
+              <div
+                key={share.id}
+                className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2.5"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-gray-700 truncate">
+                    {shareUrl(share.token)}
+                  </p>
+                  <p className="text-[10px] text-gray-400 mt-0.5">
+                    {share.use_count} visita{share.use_count !== 1 ? 's' : ''} ·{' '}
+                    {share.permission === 'shopper' ? 'Puede marcar y anotar' : 'Solo lectura'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => copyLink(share)}
+                  className="p-1.5 rounded-lg hover:bg-gray-200 text-gray-500 shrink-0"
+                  aria-label="Copiar link"
+                >
+                  {copiedId === share.id
+                    ? <Check className="w-4 h-4 text-secondary-500" />
+                    : <Copy  className="w-4 h-4" />
+                  }
+                </button>
+                <button
+                  type="button"
+                  onClick={() => revokeShare(share.id)}
+                  className="p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-400 shrink-0"
+                  aria-label="Revocar link"
+                >
+                  <Trash className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Freemium gate */}
+        {atFreeLimit && (
+          <div className="flex items-start gap-2 bg-accent-50 border border-accent-100 rounded-xl px-3 py-2.5 text-xs text-accent-700">
+            <Lock className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+            <span>
+              El plan gratuito incluye 1 link activo por lista.
+              Actualizá a <strong>Premium</strong> para links ilimitados.
+            </span>
+          </div>
+        )}
+
+        {/* Create button */}
+        <button
+          type="button"
+          onClick={atFreeLimit ? undefined : handleCreate}
+          disabled={creating || atFreeLimit}
+          className={cn(
+            'w-full btn-primary flex items-center justify-center gap-2',
+            atFreeLimit && 'opacity-40 cursor-not-allowed',
+          )}
+        >
+          {creating
+            ? <Loader2 className="w-4 h-4 animate-spin" />
+            : <Share2  className="w-4 h-4" />
+          }
+          {creating ? 'Creando…' : 'Crear link y copiar'}
+        </button>
+
+        <p className="text-[10px] text-gray-400 text-center">
+          Cualquiera con el link puede ver y marcar ítems.
+          Podés revocarlo en cualquier momento.
+        </p>
+      </div>
+    </Modal>
+  )
+}
 
 // ─── Add item modal ───────────────────────────────────────────────────────────
 function AddItemModal({ open, onClose, onAdd, saving, listId }) {
@@ -749,12 +887,14 @@ function FinalizeModal({ open, onClose, onConfirm, uncheckedCount, total, saving
 export default function ActiveShoppingList() {
   const { listId } = useParams()
   const navigate   = useNavigate()
+  const { plan }   = useAuth()
 
-  const { list, loading, saving, toggleItem, addItem, removeItem, updateItemPrice, updateItemImage, completeList } =
+  const { list, loading, saving, toggleItem, addItem, removeItem, updateItemPrice, updateItemImage, clearShopperNote, completeList } =
     useShoppingList(listId)
 
   const [showAdd,      setShowAdd]      = useState(false)
   const [showFinalize, setShowFinalize] = useState(false)
+  const [showShare,    setShowShare]    = useState(false)
   const [finalizing,   setFinalizing]   = useState(false)
 
   // ── Derived data ────────────────────────────────────────────────────────────
@@ -821,6 +961,16 @@ export default function ActiveShoppingList() {
                   {list.stores.name}
                 </span>
               )}
+              {/* Share button */}
+              <button
+                type="button"
+                onClick={() => setShowShare(true)}
+                className="p-2 rounded-xl hover:bg-gray-100 text-gray-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                aria-label="Compartir lista"
+                title="Compartir lista"
+              >
+                <Share2 className="w-5 h-5" />
+              </button>
               <button
                 type="button"
                 onClick={SCANNER_DISABLED ? undefined : () => navigate(`/scanner?listId=${listId}`)}
@@ -879,6 +1029,7 @@ export default function ActiveShoppingList() {
                 onRemove={removeItem}
                 onUpdatePrice={updateItemPrice}
                 onUpdateImage={updateItemImage}
+                onClearNote={clearShopperNote}
                 disabled={saving}
               />
             ))}
@@ -897,6 +1048,7 @@ export default function ActiveShoppingList() {
                       onRemove={removeItem}
                       onUpdatePrice={updateItemPrice}
                       onUpdateImage={updateItemImage}
+                      onClearNote={clearShopperNote}
                       disabled={saving}
                     />
                   ))}
@@ -974,6 +1126,14 @@ export default function ActiveShoppingList() {
         uncheckedCount={pending.length}
         total={spent}
         saving={finalizing}
+      />
+
+      {/* ── Share modal ──────────────────────────────────────────────────────── */}
+      <ShareModal
+        open={showShare}
+        onClose={() => setShowShare(false)}
+        listId={listId}
+        plan={plan}
       />
     </div>
   )
