@@ -187,16 +187,41 @@ export function useAuth() {
 
 /** Map Supabase English error messages to Spanish */
 function translateAuthError(message) {
-  const map = {
-    'Invalid login credentials':                   'Email o contraseña incorrectos.',
-    'Email not confirmed':                          'Confirmá tu email antes de iniciar sesión.',
-    'User already registered':                     'Ya existe una cuenta con ese email.',
-    'Password should be at least 6 characters':    'La contraseña debe tener al menos 6 caracteres.',
-    'Unable to validate email address':            'El email ingresado no es válido.',
-    'Email rate limit exceeded':                   'Demasiados intentos. Esperá unos minutos.',
-    'over_email_send_rate_limit':                  'Demasiados intentos. Esperá unos minutos.',
-    'signup_disabled':                             'El registro está deshabilitado temporalmente.',
-    'email_exists':                                'Ya existe una cuenta con ese email.',
-  }
-  return map[message] ?? 'Ocurrió un error. Intentá de nuevo.'
+  if (!message) return 'Ocurrió un error. Intentá de nuevo.'
+
+  const lower = message.toLowerCase()
+
+  // Credentials / login
+  if (lower.includes('invalid login credentials') || lower.includes('invalid_grant') || lower.includes('invalid credentials'))
+    return 'Email o contraseña incorrectos.'
+
+  // Email confirmation
+  if (lower.includes('email not confirmed') || lower.includes('email_not_confirmed'))
+    return 'Confirmá tu email antes de iniciar sesión. Revisá tu bandeja de entrada.'
+
+  // Already registered
+  if (lower.includes('user already registered') || lower.includes('email_exists') || lower.includes('already registered'))
+    return 'Ya existe una cuenta con ese email.'
+
+  // Password too short
+  if (lower.includes('password should be at least') || lower.includes('weak_password'))
+    return 'La contraseña debe tener al menos 6 caracteres.'
+
+  // Invalid email
+  if (lower.includes('unable to validate email') || lower.includes('invalid email'))
+    return 'El email ingresado no es válido.'
+
+  // Rate limit
+  if (lower.includes('rate limit') || lower.includes('over_email_send_rate_limit') || lower.includes('too many requests'))
+    return 'Demasiados intentos. Esperá unos minutos e intentá de nuevo.'
+
+  // Signup disabled
+  if (lower.includes('signup_disabled') || lower.includes('signups not allowed'))
+    return 'El registro está deshabilitado temporalmente.'
+
+  // User not found
+  if (lower.includes('user not found'))
+    return 'No existe una cuenta con ese email.'
+
+  return 'Ocurrió un error. Intentá de nuevo.'
 }
