@@ -112,7 +112,10 @@ export function useAuth() {
    */
   const signIn = async (email, password) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) return { error: translateAuthError(error.message) }
+    if (error) {
+      console.error('[SmartCart] signIn error:', error.message, error)
+      return { error: translateAuthError(error.message) }
+    }
     return { error: null }
   }
 
