@@ -137,3 +137,10 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+.vercel
+
+# Dev PWA build artifacts
+dev-dist/
+
+# Claude Code local settings (machine-specific permissions)
+.claude/settings.local.json

@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(npx vercel --prod --yes)",
+      "Bash(npm run build)",
+      "Bash(npm run dev)",
+      "Bash(mkdir -p *)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"\nconst p = process.env.CLAUDE_TOOL_INPUT_FILE_PATH || process.env.CLAUDE_TOOL_INPUT_PATH || '';\nconst agents = [\n  { pattern: /src[\\\\/](components|pages|index\\.css)/, agent: 'SmartCart-Frontend', note: 'UI change: verify tap targets (44px), pb-24 padding, Spanish strings, no direct supabase import' },\n  { pattern: /supabase[\\\\/]/, agent: 'SmartCart-Backend', note: 'Schema change: add RLS policy, never edit existing migrations, create new NNN_verb_noun.sql' },\n  { pattern: /src[\\\\/]services[\\\\/]/, agent: 'SmartCart-Integrations', note: 'Service change: add JSDoc @returns, throw on error, use offlineQueue for writes' },\n  { pattern: /\\.(test|spec)\\.(js|jsx|ts|tsx)$/, agent: 'SmartCart-QA', note: 'Test file: run audit checklist in .agents/SmartCart-QA.md before committing' },\n];\nconst match = agents.find(a => a.pattern.test(p));\nif (match) console.log('[SmartCart] Agent domain: ' + match.agent + ' | ' + match.note);\n\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"\nconst p = process.env.CLAUDE_TOOL_INPUT_FILE_PATH || process.env.CLAUDE_TOOL_INPUT_PATH || '';\nif (/supabase[\\\\/]migrations/.test(p)) {\n  console.log('[SmartCart-Backend] Migration written. Reminder: (1) verify RLS policies, (2) notify SmartCart-Integrations of schema changes, (3) run: supabase db push');\n}\nif (/src[\\\\/]services/.test(p)) {\n  console.log('[SmartCart-Integrations] Service written. Reminder: (1) JSDoc on all public methods, (2) update hook if return shape changed, (3) notify SmartCart-Frontend of new hook API');\n}\nif (/src[\\\\/](components|pages)/.test(p)) {\n  console.log('[SmartCart-Frontend] Component written. Reminder: run SmartCart-QA audit checklist before marking this interface done');\n}\n\""
+          }
+        ]
+      }
+    ]
+  }
+}
